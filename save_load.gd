@@ -6,13 +6,19 @@ var is_saving: bool
 var save_again: bool
 var is_loading: bool
 
+# Status signals
+signal save_successful
+signal save_failed
+signal load_successful
+signal load_failed
+
 var data: Dictionary = {
 	# This is where the variables to be stored go
 	# For example:
 	# "KEY": VALUE
 	"count1" = 0,
 	"count2" = 2,
-	# "count3" = 983275
+	#"count3" = 983275
 }
 
 
@@ -29,6 +35,7 @@ func save_data() -> bool:
 	# Check if the file was successfully opened for writing
 	if file == null:
 		printerr("Failed to save data. Can`t write file.")
+		save_failed.emit()
 		return false
 	
 	# Store the data in the file
@@ -42,6 +49,7 @@ func save_data() -> bool:
 		save_again = false
 		save_data() # Recursively save the data if requested during the previous save
 		
+	save_successful.emit()
 	return true
 
 
@@ -57,12 +65,14 @@ func load_data() -> bool:
 	# Check if the file exists
 	if !FileAccess.file_exists(save_path):
 		printerr("Failed to load data. File does not exist.")
+		load_failed.emit()
 		return false
 	
 	var file: FileAccess = FileAccess.open(save_path, FileAccess.READ)
 	# Check if the file was successfully opened for reading
 	if file == null:
 		printerr("Failed to load data. Can`t read file.")
+		load_failed.emit()
 		return false
 	
 	var loaded_data: Variant = file.get_var()
@@ -74,14 +84,16 @@ func load_data() -> bool:
 		for key in data.keys():
 			if loaded_data.has(key):
 				filtered_data[key] = loaded_data[key]
-		
 		# Merge the filtered data with the original data
 		data.merge(filtered_data, true) # Overwrite old values with new values if they exist
 	else:
 		printerr("Failed to load data. Data is not a valid dictionary.")
+		load_failed.emit()
+		return false
 	
 	file.close()
 	
 	is_loading = false # Mark the loading process as done
 	
+	load_successful.emit()
 	return true
