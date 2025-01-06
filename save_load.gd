@@ -1,6 +1,6 @@
 extends Node
 
-const save_path = "user://savegame.save"
+const save_directory = "user://savegames/"
 
 var is_saving: bool
 var save_again: bool
@@ -18,12 +18,30 @@ var data: Dictionary = {
 	# "KEY": VALUE
 	"count1" = 0,
 	"count2" = 2,
-	#"count3" = 983275
 }
 
 
+func get_save_path(save_name: String) -> String:
+	return save_directory + save_name + ".save"
+
+
+func ensure_save_directory() -> bool:
+	var dir: DirAccess = DirAccess.open("user://")
+	if dir == null:
+		printerr("Failed to access user directory.")
+		return false
+	if !dir.dir_exists(save_directory):
+		var result = dir.make_dir(save_directory)
+		if result != OK:
+			printerr("Faild to create savegames directory.")
+			return false
+		else:
+			print("Savegames directory created.")
+	return true
+
+
 # Save data
-func save_data() -> bool:
+func save_data(save_name: String) -> bool:
 	# Check if the data is already being saved to avoid multiple simultaneous saves
 	if is_saving:
 		save_again = true # If another save is requested during an ongoing save, set save_again to true
@@ -31,7 +49,11 @@ func save_data() -> bool:
 	
 	is_saving = true # Mark the process as saving
 	
-	var file : FileAccess = FileAccess.open(save_path, FileAccess.WRITE)
+	if !ensure_save_directory():
+		save_failed.emit()
+		return false
+	
+	var file : FileAccess = FileAccess.open(get_save_path(save_name), FileAccess.WRITE)
 	# Check if the file was successfully opened for writing
 	if file == null:
 		printerr("Failed to save data. Can`t write file.")
@@ -47,14 +69,14 @@ func save_data() -> bool:
 	# If another save was requested while saving, perform the save again
 	if save_again:
 		save_again = false
-		save_data() # Recursively save the data if requested during the previous save
+		save_data(save_name) # Recursively save the data if requested during the previous save
 		
 	save_successful.emit()
 	return true
 
 
 # Load data
-func load_data() -> bool:
+func load_data(save_name: String) -> bool:
 	# Check if data is already being loaded to prevent loading multiple times at once
 	if is_loading:
 		print("Already loading the game")
@@ -62,13 +84,17 @@ func load_data() -> bool:
 	
 	is_loading = true # Mark the process as loading
 	
+	if !ensure_save_directory():
+		load_failed.emit()
+		return false
+	
 	# Check if the file exists
-	if !FileAccess.file_exists(save_path):
+	if !FileAccess.file_exists(get_save_path(save_name)):
 		printerr("Failed to load data. File does not exist.")
 		load_failed.emit()
 		return false
 	
-	var file: FileAccess = FileAccess.open(save_path, FileAccess.READ)
+	var file: FileAccess = FileAccess.open(get_save_path(save_name), FileAccess.READ)
 	# Check if the file was successfully opened for reading
 	if file == null:
 		printerr("Failed to load data. Can`t read file.")
