@@ -38,7 +38,7 @@ horizontal_alignment = 1
 [node name="Savefilename" type="Label" parent="CenterContainer/VBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "0"
+text = "Savefilename: 0"
 horizontal_alignment = 1
 
 [node name="HBoxContainer" type="HBoxContainer" parent="CenterContainer/VBoxContainer"]

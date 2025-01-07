@@ -34,7 +34,7 @@ func _ready() -> void:
 	SaveLoad.save_failed.connect(_on_save_failed)
 	SaveLoad.load_successful.connect(_on_load_successful)
 	SaveLoad.load_failed.connect(_on_load_failed)
-	%Savefilename.text = str(save_name)
+	%Savefilename.text = "Savefilename: " + str(save_name)
 
 func _on_save_successful():
 	print("save successful")
@@ -51,9 +51,9 @@ func _on_load_failed():
 
 func _on_savefileplus_pressed() -> void:
 	save_name += 1
-	%Savefilename.text = str(save_name)
+	%Savefilename.text = "Savefilename: " + str(save_name)
 
 
 func _on_savefileminus_pressed() -> void:
 	save_name -= 1
-	%Savefilename.text = str(save_name)
+	%Savefilename.text = "Savefilename: " + str(save_name)
