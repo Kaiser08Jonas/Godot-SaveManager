@@ -2,6 +2,9 @@ extends Node
 
 const save_directory = "user://savegames/"
 
+# Adjust these variables according to the desired functions.
+var can_save_empty_data = false
+
 var is_saving: bool
 var save_again: bool
 var is_loading: bool
@@ -12,24 +15,19 @@ signal save_failed
 signal load_successful
 signal load_failed
 
-var data: Dictionary = {
-	# This is where the variables to be stored go
-	# For example:
-	# "KEY": VALUE
-	"count1" = 0,
-	"count2" = 2,
-}
-
 
 func get_save_path(save_name: String) -> String:
 	return save_directory + save_name + ".save"
 
 
+# Ensures that the storage location exists.
 func ensure_save_directory() -> bool:
 	var dir: DirAccess = DirAccess.open("user://")
+	# Check if the folder was successfully opened for writing
 	if dir == null:
 		printerr("Failed to access user directory.")
 		return false
+	# Create a folder if none exists.
 	if !dir.dir_exists(save_directory):
 		var result = dir.make_dir(save_directory)
 		if result != OK:
@@ -41,7 +39,7 @@ func ensure_save_directory() -> bool:
 
 
 # Save data
-func save_data(save_name: String) -> bool:
+func save_data(save_name: String, data_to_save: Dictionary) -> bool:
 	# Check if the data is already being saved to avoid multiple simultaneous saves
 	if is_saving:
 		save_again = true # If another save is requested during an ongoing save, set save_again to true
@@ -49,8 +47,17 @@ func save_data(save_name: String) -> bool:
 	
 	is_saving = true # Mark the process as saving
 	
+	# Check if the folder for the save exists
 	if !ensure_save_directory():
 		save_failed.emit()
+		is_saving = false
+		return false
+	
+	# Check if the save dictionary is empty
+	if !can_save_empty_data and data_to_save.is_empty():
+		printerr("Cannot save empty data.")
+		save_failed.emit()
+		is_saving = false
 		return false
 	
 	var file : FileAccess = FileAccess.open(get_save_path(save_name), FileAccess.WRITE)
@@ -58,10 +65,11 @@ func save_data(save_name: String) -> bool:
 	if file == null:
 		printerr("Failed to save data. Can`t write file.")
 		save_failed.emit()
+		is_saving = false
 		return false
 	
 	# Store the data in the file
-	file.store_var(data)
+	file.store_var(data_to_save)
 	file.close()
 	
 	is_saving = false # Mark the process as done
@@ -69,37 +77,40 @@ func save_data(save_name: String) -> bool:
 	# If another save was requested while saving, perform the save again
 	if save_again:
 		save_again = false
-		save_data(save_name) # Recursively save the data if requested during the previous save
+		save_data(save_name, data_to_save) # Recursively save the data if requested during the previous save
 		
 	save_successful.emit()
 	return true
 
 
 # Load data
-func load_data(save_name: String) -> bool:
+func load_data(save_name: String, data_to_load_into: Dictionary) -> Dictionary:
 	# Check if data is already being loaded to prevent loading multiple times at once
 	if is_loading:
 		print("Already loading the game")
-		return false
+		return data_to_load_into
 	
 	is_loading = true # Mark the process as loading
 	
 	if !ensure_save_directory():
 		load_failed.emit()
-		return false
+		is_loading = false
+		return data_to_load_into
 	
 	# Check if the file exists
 	if !FileAccess.file_exists(get_save_path(save_name)):
-		printerr("Failed to load data. File does not exist.")
+		printerr("Failed to load data. File " + get_save_path(save_name) + " does not exist.")
 		load_failed.emit()
-		return false
+		is_loading = false
+		return data_to_load_into
 	
 	var file: FileAccess = FileAccess.open(get_save_path(save_name), FileAccess.READ)
 	# Check if the file was successfully opened for reading
 	if file == null:
-		printerr("Failed to load data. Can`t read file.")
+		printerr("Failed to load data. Can`t read file " + get_save_path(save_name) + " .")
 		load_failed.emit()
-		return false
+		is_loading = false
+		return data_to_load_into
 	
 	var loaded_data: Variant = file.get_var()
 	var filtered_data: Dictionary = {}
@@ -107,19 +118,20 @@ func load_data(save_name: String) -> bool:
 	# Ensure that the loaded data is a dictionary
 	if typeof(loaded_data) == TYPE_DICTIONARY:
 		# Filter the loaded data to include only the expected keys
-		for key in data.keys():
+		for key in data_to_load_into.keys():
 			if loaded_data.has(key):
 				filtered_data[key] = loaded_data[key]
 		# Merge the filtered data with the original data
-		data.merge(filtered_data, true) # Overwrite old values with new values if they exist
+		data_to_load_into.merge(filtered_data, true) # Overwrite old values with new values if they exist
 	else:
 		printerr("Failed to load data. Data is not a valid dictionary.")
 		load_failed.emit()
-		return false
+		is_loading = false
+		return data_to_load_into
 	
 	file.close()
 	
 	is_loading = false # Mark the loading process as done
 	
 	load_successful.emit()
-	return true
+	return data_to_load_into

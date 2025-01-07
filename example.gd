@@ -2,32 +2,30 @@ extends Control
 
 var save_name: int = 1
 
-var count1:  int = 0
-var count2:  int = 0
-
+var data: Dictionary = {
+	"count1" = 0,
+	"count2" = 5,
+}
 
 func _on_plus_pressed() -> void:
-	count1 += 1
-	%Count1.text = str(count1)
+	data["count1"] += 1
+	%Count1.text = str(data["count1"])
 
 
 func _on_minus_pressed() -> void:
-	count1 -= 1
-	%Count1.text = str(count1)
+	data["count1"] -= 1
+	%Count1.text = str(data["count1"])
 
 
 func _on_save_pressed() -> void:
-	SaveLoad.data["count1"] = count1
-	SaveLoad.save_data(str(save_name))
+	SaveLoad.save_data(str(save_name), data)
 
 
 func _on_load_pressed() -> void:
-	SaveLoad.load_data(str(save_name))
-	count1 = SaveLoad.data["count1"]
-	%Count1.text = str(count1)
-	count2 = SaveLoad.data["count2"]
-	%Count2.text = str(count2)
-	print(SaveLoad.data)
+	SaveLoad.load_data(str(save_name), data)
+	%Count1.text = str(data["count1"])
+	%Count2.text = str(data["count2"])
+	print(data)
 
 # This is an example of how the status signals can be used.
 func _ready() -> void:
