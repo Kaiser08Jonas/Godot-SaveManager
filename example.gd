@@ -43,7 +43,7 @@ func _on_save_failed():
 	print("save failed")
 
 func _on_load_successful():
-	print("loade successful")
+	print("load successful")
 
 func _on_load_failed():
 	print("load failed")
