@@ -3,21 +3,32 @@ extends Node
 const save_directory = "user://savegames/"
 
 # Adjust these variables according to the desired functions.
-var can_save_empty_data = false		# When true, empty data will be saved.
-var delete_old_loaded_data = false	# When true, loaded data is deleted from the saved file if it is no longer in the dictionary to be loaded.
+var print_debug_messages: bool = true		# When true, prints the debug messages via the signals.
+var can_save_empty_data: bool = false		# When true, empty data will be saved.
+var delete_old_loaded_data:bool  = false	# When true, loaded data is deleted from the saved file if it is no longer in the dictionary to be loaded.
 
 var is_saving: bool
 var is_loading: bool
-var save_queue: Dictionary = {} 	# Saves the data if a new save process is started during a save process.
-var load_queue: Dictionary = {} 	# Saves the data if a new load process is started during a load process.
+var save_queue: Dictionary = {} 			# Saves the data if a new save process is started during a save process.
+var load_queue: Dictionary = {} 			# Saves the data if a new load process is started during a load process.
 
 # Status signals
-signal save_successful				# Sends a signal if the save was successful.
-signal save_failed					# Sends a signal if the save has failed.
-signal load_successful				# Sends a signal if the load was successful.
-signal load_failed					# Sends a signal if the load has failed.
-signal data_cleanup_successfull		# Sends a signal if the cleanup was successful.
-signal data_cleanup_failed			# Sends a signal if the cleanup has failed.
+signal save_successful(save_name: String)										# Sends a signal if the save was successful.
+signal save_failed(save_name: String, error_message: String)					# Sends a signal if the save has failed.
+signal load_successful(save_name: String)										# Sends a signal if the load was successful.
+signal load_failed(save_name: String, error_message: String)					# Sends a signal if the load has failed.
+signal data_cleanup_successfull(save_name: String)								# Sends a signal if the cleanup was successful.
+signal data_cleanup_failed(save_name: String, error_message: String)			# Sends a signal if the cleanup has failed.
+
+
+func _ready() -> void:
+	# Connect the signal to the functions
+	save_successful.connect(_on_save_successful)
+	save_failed.connect(_on_save_failed)
+	load_successful.connect(_on_load_successful)
+	load_failed.connect(_on_load_failed)
+	data_cleanup_successfull.connect(_on_data_cleanup_successfull)
+	data_cleanup_failed.connect(_on_data_cleanup_failed)
 
 
 # Function to construct the file path for saving/loading.
@@ -50,21 +61,21 @@ func save_data(save_name: String, data_to_save: Dictionary) -> bool:
 	# Checks if the data is already being saved to avoid multiple simultaneous saves.
 	if is_saving:
 		save_queue[save_name] = data_to_save
-		print("Saving queue: " + str(save_queue.keys()))
 		return false
 	
 	is_saving = true # Mark the process as saving.
 	
 	# Checks if the folder for the save exists.
 	if !ensure_save_directory():
-		save_failed.emit()
+		var error_message: String = "Failed to ensure save directory for saving."
+		save_failed.emit(save_name, error_message)
 		is_saving = false
 		return false
 	
 	# Checks if the save dictionary is empty.
 	if !can_save_empty_data and data_to_save.is_empty():
-		printerr("Cannot save empty data.")
-		save_failed.emit()
+		var error_message: String = "Cannot save empty data."
+		save_failed.emit(save_name, error_message)
 		is_saving = false
 		return false
 	
@@ -72,8 +83,8 @@ func save_data(save_name: String, data_to_save: Dictionary) -> bool:
 	
 	# Checks if the file was successfully opened for writing.
 	if file == null:
-		printerr("Failed to save data. Can`t write file.")
-		save_failed.emit()
+		var error_message: String = "Failed to save data. Can`t write file."
+		save_failed.emit(save_name, error_message)
 		is_saving = false
 		return false
 	
@@ -81,8 +92,7 @@ func save_data(save_name: String, data_to_save: Dictionary) -> bool:
 	file.store_var(data_to_save)
 	file.close()
 	
-	save_successful.emit()
-	print("Save as >" + str(save_name) + "< was successful")
+	save_successful.emit(save_name)
 	
 	# Checks whether further saves should be made.
 	if save_queue.size() > 0:
@@ -90,7 +100,6 @@ func save_data(save_name: String, data_to_save: Dictionary) -> bool:
 			var next_item = save_queue[key]
 			save_data(key, next_item) # Recursively save the data if requested during the previous save.
 			save_queue.erase(key)
-			print("Saving queue: " + str(save_queue.keys()))
 			break
 	
 	is_saving = false # Mark the process as done.
@@ -104,28 +113,28 @@ func load_data(save_name: String, data_to_load_into: Dictionary) -> Dictionary:
 	# Check if data is already being loaded to prevent loading multiple times at once.
 	if is_loading:
 		load_queue[save_name] = data_to_load_into
-		print("Loading queue: " + str(load_queue.keys()))
 		return data_to_load_into
 	
 	is_loading = true # Mark the process as loading.
 	
 	if !ensure_save_directory():
-		load_failed.emit()
+		var error_message: String = "Failed to ensure save directory for loading"
+		load_failed.emit(save_name, error_message)
 		is_loading = false
 		return data_to_load_into
 	
 	# Check if the file exists.
 	if !FileAccess.file_exists(get_save_path(save_name)):
-		printerr("Failed to load data. File >>" + get_save_path(save_name) + "<< does not exist.")
-		load_failed.emit()
+		var error_message: String = "Failed to load data. File >>" + get_save_path(save_name) + "<< does not exist."
+		load_failed.emit(save_name, error_message)
 		is_loading = false
 		return data_to_load_into
 	
 	var file: FileAccess = FileAccess.open(get_save_path(save_name), FileAccess.READ)
 	# Check if the file was successfully opened for reading.
 	if file == null:
-		printerr("Failed to load data. Can`t read file >>" + get_save_path(save_name) + "<< .")
-		load_failed.emit()
+		var error_message: String = "Failed to load data. Can`t read file >>" + get_save_path(save_name) + "<< ."
+		load_failed.emit(save_name, error_message)
 		is_loading = false
 		return data_to_load_into
 	
@@ -141,18 +150,17 @@ func load_data(save_name: String, data_to_load_into: Dictionary) -> Dictionary:
 		# Merge the filtered data with the original data.
 		data_to_load_into.merge(filtered_data, true) # Overwrite old values with new values if they exist.
 	else:
-		printerr("Failed to load data. Data is not a valid dictionary.")
-		load_failed.emit()
+		var error_message: String = "Failed to load data. Data is not a valid dictionary."
+		load_failed.emit(save_name, error_message)
 		is_loading = false
 		return data_to_load_into
 	
 	file.close()
 	
 	if delete_old_loaded_data:
-		delete_old_data(get_save_path(save_name), loaded_data, data_to_load_into)
+		delete_old_data(save_name, loaded_data, data_to_load_into)
 	
-	load_successful.emit()
-	print("Load as >" + str(save_name) + "< was successful")
+	load_successful.emit(save_name)
 	
 	# Checks whether further saves should be made.
 	if load_queue.size() > 0:
@@ -160,19 +168,18 @@ func load_data(save_name: String, data_to_load_into: Dictionary) -> Dictionary:
 			var next_item = load_queue[key]
 			load_data(key, next_item) # Recursively save the data if requested during the previous save.
 			load_queue.erase(key)
-			print("Loading queue: " + str(load_queue.keys()))
 			break
 	
 	is_loading = false # Mark the loading process as done.
 	
 	return data_to_load_into
 
+
 # Cleanup old saved data
-func delete_old_data(save_path, loaded_data: Dictionary, data_to_compare: Dictionary) -> bool:
+func delete_old_data(save_name, loaded_data: Dictionary, data_to_compare: Dictionary) -> bool:
 	# Checks whether the loaded data and the data to be compared are identical.
 	if loaded_data == data_to_compare:
-		print("There is no unnecessary data.")
-		data_cleanup_successfull.emit()
+		data_cleanup_successfull.emit(save_name)
 		return false
 	
 	# Add the repuired data to a new dictionary.
@@ -181,17 +188,42 @@ func delete_old_data(save_path, loaded_data: Dictionary, data_to_compare: Dictio
 		if data_to_compare.has(key):
 			new_data[key] = loaded_data[key]
 	
-	var file: FileAccess = FileAccess.open(save_path, FileAccess.WRITE)
+	var file: FileAccess = FileAccess.open(get_save_path(save_name), FileAccess.WRITE)
 	
 	# Checks if the file was successfully opened for writing.
 	if file == null:
-		printerr("Failed to open file for cleaning old data.")
-		data_cleanup_failed.emit()
+		var error_message: String = "Failed to open file for cleaning old data."
+		data_cleanup_failed.emit(save_name, error_message)
 		return false
 	
 	# Store the new data in the file.
 	file.store_var(new_data)
 	file.close()
-	data_cleanup_successfull.emit()
-	print("Data cleaned")
+	data_cleanup_successfull.emit(save_name)
 	return true
+
+
+# Prints the debug messages
+func _on_save_successful(save_name):
+	if print_debug_messages:
+		print("save successful as >> " + save_name + " <<")
+
+func _on_save_failed(save_name, error_message):
+	if print_debug_messages:
+		printerr("save failed for >> " + save_name + " <<. " + error_message)
+
+func _on_load_successful(save_name):
+	if print_debug_messages:
+		print("load successful from >> " + save_name + " <<")
+
+func _on_load_failed(save_name, error_message):
+	if print_debug_messages:
+		printerr("load failed from >> " + save_name + " <<. " + error_message)
+
+func _on_data_cleanup_successfull(save_name):
+	if print_debug_messages:
+		print("data cleanup successfull for >> " + save_name + " <<")
+
+func _on_data_cleanup_failed(save_name, error_message):
+	if print_debug_messages:
+		printerr("data cleanup failed for >> " + save_name + " <<. " + error_message)
