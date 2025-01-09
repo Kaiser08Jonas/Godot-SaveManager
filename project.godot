@@ -10,14 +10,14 @@ config_version=5
 
 [application]
 
-config/name="Save and Load System"
+config/name="SaveManager"
 run/main_scene="res://example.tscn"
 config/features=PackedStringArray("4.3", "GL Compatibility")
 config/icon="res://icon.svg"
 
 [autoload]
 
-SaveLoad="*res://save_load.gd"
+SaveManager="*res://SaveManager.gd"
 
 [rendering]
 

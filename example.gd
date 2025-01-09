@@ -19,11 +19,11 @@ func _on_minus_pressed() -> void:
 
 
 func _on_save_pressed() -> void:
-	SaveLoad.save_data(str(save_name), data)
+	SaveManager.save_data(str(save_name), data)
 
 
 func _on_load_pressed() -> void:
-	SaveLoad.load_data(str(save_name), data)
+	SaveManager.load_data(str(save_name), data)
 	%Count1.text = str(data["count1"])
 	%Count2.text = str(data["count2"])
 
