@@ -16,7 +16,7 @@ Further information can be found in the Godot documentation: [Saving Games](http
 ### Save path
 The save path is the same as in the Godot documentation. It can be changed by changing the following constant to the desired path:
 
-`const save_path = "user://savegame.save"`
+`const SAVE_DIRECTORY = "user://savegames/"`
 
 It can be found at the top of the script.
 
@@ -34,6 +34,7 @@ var data: Dictionary = {
 SaveManager.save_data("save1", data)
 ```
 
+"save1" is the name given to the file after saving.
 If a new process is requested while a storage process is running, it is placed in a queue. As soon as the current process is finished, one process after the other is processed automatically.
 
 ### Load data
@@ -47,6 +48,7 @@ var data: Dictionary = {
 SaveManager.load_data("save1", data)
 ```
 
+"save1" is the name of the file that is to be loaded.
 As with the save function, load requests that are requested during a running process are placed in a queue list. This is then processed one after the other.
 
 > [!NOTE]
@@ -67,25 +69,26 @@ There are status signals that can be used to provide information, such as that t
 
 The following signal exist:
 ```
-signal save_successful(save_name: String)				# Sends a signal if the save was successful.
-signal save_failed(save_name: String, error_message: String)		# Sends a signal if the save has failed.
-signal load_successful(save_name: String)				# Sends a signal if the load was successful.
-signal load_failed(save_name: String, error_message: String)		# Sends a signal if the load has failed.
-signal data_cleanup_successful(save_name: String)			# Sends a signal if the cleanup was successful.
-signal data_cleanup_failed(save_name: String, error_message: String)	# Sends a signal if the cleanup has failed.
+signal save_successful(save_name: String, debug_message: String)		# Sends a signal if the save was successful.
+signal save_failed(save_name: String, error_message: String)			# Sends a signal if the save has failed.
+signal load_successful(save_name: String, debug_message: String)		# Sends a signal if the load was successful.
+signal load_failed(save_name: String, error_message: String)			# Sends a signal if the load has failed.
+signal data_cleanup_successful(save_name: String, debug_message: String)	# Sends a signal if the cleanup was successful.
+signal data_cleanup_failed(save_name: String, error_message: String)		# Sends a signal if the cleanup has failed.
 ```
 
-### Print debut messages
-The `print_debug_messages` variable defines whether the debug messages are printed or not.
+### Print debut or error messages
+The `PRINT_DEBUG_MESSAGES` variable defines whether the debug messages are printed or not.
+The `PRINT_ERROR_MESSAGES` variable defines the same, only for error messages.
 
-If false -> no debug messages will be printed.
+If false -> no debug/error messages will be printed.
 
-If true -> all debug messages will be printed.
+If true -> all debug/error messages will be printed.
 
 ### Save empty data
 The variable `can_save_empty_data` determines whether empty dictionarys can be saved. The messages use the status signals.
 
-If false -> empty dictionarys are skipped and a corresponding message will be printet in the console.
+If false -> empty dictionarys are skipped and a corresponding error message will be printet in the console.
 
 If true -> the empty dictionary gets saved like a regular save.
 
@@ -94,14 +97,14 @@ If true -> the empty dictionary gets saved like a regular save.
 
 If false -> old data remains in the saved file.
 
-If true -> old data will be deleted from the saved file and a corresponding message will be printet in the console.
+If true -> old data will be deleted from the saved file and a corresponding debug message will be printet in the console.
 
-## Notes on error handling
-If an error occurs during saving or loading, a corresponding error message will be printet.
+### Wait after fail
+The `wait_time_after_fail: int = 1` variable defines the time in seconds that the load or save process remains in fail mode. The higher it is, the longer no new process can be started after an error.
 
 ## Other Information
 ### Demo project
-This project contains a demo project with which the functions can be tested.
+This project contains a demo project with which the basic save and load functions can be tested.
 
 ### Compatibility
 > [!NOTE]
