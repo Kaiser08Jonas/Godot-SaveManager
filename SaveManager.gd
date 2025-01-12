@@ -1,6 +1,9 @@
 extends Node
 
-const SAVE_DIRECTORY = "user://savegames/"
+# Adjust these constants only before creating the first save file.
+const SAVE_DIRECTORY = "user://savegames/"	# The data is saved in this path
+const ENCRYPT_KEY: String = "123456abc"		# If the data should be encrypted, it will be encrypted with this key.
+const ENCRYPT_FILES: bool = true			# Determines whether the data should be encrypted.
 
 # Adjust these variables according to the desired functions.
 var PRINT_DEBUG_MESSAGES: bool = true		# When true, prints the debug messages via the signals.
@@ -30,6 +33,7 @@ signal data_cleanup_failed(save_name: String, error_message: String)			# Sends a
 # If new signals are added, they must be entered in the list in order to be automatically linked to the corresponding function.
 const SIGNALS: Array = ["save_successful", "save_failed", "load_successful", "load_failed", "data_cleanup_successful", "data_cleanup_failed"]
 
+
 func _ready() -> void:
 	# Connect the signal to the functions
 	for signal_name in SIGNALS:
@@ -39,6 +43,12 @@ func _ready() -> void:
 # Function to construct the file path for saving/loading.
 # Returns a string representing the full path to the save file.
 func get_save_path(save_name: String, temporary: bool) -> String:
+	if ENCRYPT_FILES:
+		if temporary:
+			return SAVE_DIRECTORY + save_name + ".tmp"
+		else:
+			return SAVE_DIRECTORY + save_name + ".save"
+	
 	if temporary:
 		return SAVE_DIRECTORY + save_name + ".tmp"
 	else:
@@ -55,6 +65,7 @@ func ensure_save_directory(save_name: String, process: String) -> bool:
 		if str(process) + "_data" == "load_data":
 			load_failed.emit(save_name, "Failed to access user directory while loading.")
 		return false
+	
 	# Create a folder if none exists.
 	if !dir.dir_exists(SAVE_DIRECTORY):
 		var result = dir.make_dir(SAVE_DIRECTORY)
@@ -103,9 +114,14 @@ func save_data(save_name: String, data_to_save: Dictionary) -> bool:
 		return false
 	
 	var save_path = get_save_path(save_name, false)
-	# Creates a temporary save path. This ensures that existing data is not damaged during loading.
+	# Creates a temporary save path. This ensures that existing data is not damaged during saving.
 	var temp_path = get_save_path(save_name, true)
-	var file : FileAccess = FileAccess.open(temp_path, FileAccess.WRITE)
+	
+	var file : FileAccess
+	if !ENCRYPT_FILES:
+		file = FileAccess.open(temp_path, FileAccess.WRITE)
+	if ENCRYPT_FILES:
+		file = FileAccess.open_encrypted_with_pass(temp_path, FileAccess.WRITE, ENCRYPT_KEY)
 	
 	# Checks if the file was successfully opened for writing.
 	if file == null:
@@ -145,7 +161,15 @@ func load_data(save_name: String, data_to_load_into: Dictionary) -> Dictionary:
 		load_failed.emit(save_name, "Failed to load data. File does not exist.")
 		return data_to_load_into
 	
-	var file: FileAccess = FileAccess.open(get_save_path(save_name, false), FileAccess.READ)
+	var save_path: String = get_save_path(save_name, false)
+	
+	var file: FileAccess
+	
+	if !ENCRYPT_FILES:
+		file = FileAccess.open(save_path, FileAccess.READ)
+	if ENCRYPT_FILES:
+		file = FileAccess.open_encrypted_with_pass(save_path, FileAccess.READ, ENCRYPT_KEY)
+	
 	# Check if the file was successfully opened for reading.
 	if file == null:
 		load_failed.emit(save_name, "Failed to load data. Can`t read file.")

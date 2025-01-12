@@ -7,9 +7,6 @@ This SaveManager was specially developed for projects that require a fast, relia
 > [!CAUTION]
 > As binary serialization is used, the stored values cannot be edited in a text editor. This protects the data, but makes testing more difficult.
 
-> [!IMPORTANT]
-> Even if the data cannot be edited just like that, they are not encrypted!
-
 Further information can be found in the Godot documentation: [Saving Games](https://docs.godotengine.org/en/stable/tutorials/io/saving_games.html)
 
 ## Save or load data
@@ -18,10 +15,17 @@ The save path is the same as in the Godot documentation. It can be changed by ch
 
 `const SAVE_DIRECTORY = "user://savegames/"`
 
-It can be found at the top of the script.
+> [!IMPORTANT]
+> The SAVE_DIRECTORY is used for saving and loading. It should therefore not be changed if a file has already been saved! Only files located in the folder to which the save path leads can be loaded.
 
-> [!CAUTION]
-> The save path is used for saving and loading. It should therefore not be changed if a file has already been saved! Only files located in the folder to which the save path leads can be loaded.
+
+### Encrypting files
+The constant `ENCRYPT_KEY: String = "123456abc"` determines the key with which a file is encrypted.
+The `const ENCRYPT_FILES: bool = true` determines whether the data should be encrypted.
+
+> [!IMPORTANT]
+> As with SAVE_DIRECTORY, the constant ENCRYPT_KEY and the ENCRYPT_FILES shoud not be changed after a file has already been saved!
+> Only the files with the correct settings of both constants can be loaded!
 
 ### Save data
 To start saving, simply call the save_data function. The name of the save file and the dictionary to be saved must always be passed to it.
@@ -35,7 +39,7 @@ SaveManager.save_data("save1", data)
 ```
 
 "save1" is the name given to the file after saving.
-If a new process is requested while a storage process is running, it is placed in a queue. As soon as the current process is finished, one process after the other is processed automatically.
+If a new process is requested while a save process is running, it is placed in a queue. As soon as the current process is finished, one process after the other is processed automatically.
 
 ### Load data
 Similar to saving, the loading process can be called via the load_data function. The name of the saved file from which the data is to be taken and the dictionary in which the data is to be loaded must be passed to the function.
@@ -86,7 +90,7 @@ If false -> no debug/error messages will be printed.
 If true -> all debug/error messages will be printed.
 
 ### Save empty data
-The variable `can_save_empty_data` determines whether empty dictionarys can be saved. The messages use the status signals.
+The variable `can_save_empty_data` determines whether empty dictionarys can be saved.
 
 If false -> empty dictionarys are skipped and a corresponding error message will be printet in the console.
 
