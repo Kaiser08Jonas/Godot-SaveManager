@@ -33,8 +33,6 @@ signal data_cleanup_failed(save_name: String, error_message: String)			# Sends a
 # If new signals are added, they must be entered in the list in order to be automatically linked to the corresponding function.
 const SIGNALS: Array = ["save_successful", "save_failed", "load_successful", "load_failed", "data_cleanup_successful", "data_cleanup_failed"]
 
-# Has the new directory according to the encryption
-var new_save_directory
 
 func _ready() -> void:
 	# Connect the signal to the functions
@@ -47,9 +45,9 @@ func _ready() -> void:
 func get_save_path(save_name: String, temporary: bool) -> String:
 	if ENCRYPT_FILES:
 		if temporary:
-			return new_save_directory + save_name + ".tmp"
+			return SAVE_DIRECTORY + save_name + ".tmp"
 		else:
-			return new_save_directory + save_name + ".save"
+			return SAVE_DIRECTORY + save_name + ".save"
 	
 	if temporary:
 		return SAVE_DIRECTORY + save_name + ".tmp"
@@ -68,14 +66,9 @@ func ensure_save_directory(save_name: String, process: String) -> bool:
 			load_failed.emit(save_name, "Failed to access user directory while loading.")
 		return false
 	
-	if ENCRYPT_FILES:
-		new_save_directory = SAVE_DIRECTORY
-	else:
-		new_save_directory = SAVE_DIRECTORY
-	
 	# Create a folder if none exists.
-	if !dir.dir_exists(new_save_directory):
-		var result = dir.make_dir(new_save_directory)
+	if !dir.dir_exists(SAVE_DIRECTORY):
+		var result = dir.make_dir(SAVE_DIRECTORY)
 		if result != OK:
 			if str(process) + "_data" == "save_data":
 				save_failed.emit(save_name, "Faild to create savegames directory. while saving.")
