@@ -18,6 +18,7 @@ var save_process_status: process_status = process_status.IDLE
 var load_process_status: process_status = process_status.IDLE
 var cleanup_process_status: process_status = process_status.IDLE
 
+# All queues
 var save_queue: Dictionary = {} 			# Saves the data if a new save process is started during a save process.
 var load_queue: Dictionary = {} 			# Saves the data if a new load process is started during a load process.
 var cleanup_queue: Dictionary = {}			# Saves the data if a new cleanup process is started during a cleanup process.
@@ -76,7 +77,7 @@ func ensure_save_directory(save_name: String, process: String) -> bool:
 				load_failed.emit(save_name, "Faild to create savegames directory. while loading.")
 			return false
 		else:
-			log_debug(save_name, "Savegames directory created.")
+			log_message(log_message_type.DEBUG, save_name, "Savegames directory created.")
 	return true
 
 
@@ -90,6 +91,23 @@ func validate_data(data_to_check: Dictionary) -> int:
 		return 2 #"Cannot save empty data."
 	
 	return 0
+
+enum file_access_mode {WRITE, READ}
+
+# Get FileAccess
+func file_access(save_path: String, mode: file_access_mode) -> FileAccess:
+	# Get FileAccess without encryption
+	if !ENCRYPT_FILES:
+		match mode:
+			file_access_mode.WRITE: return FileAccess.open(save_path, FileAccess.WRITE)
+			file_access_mode.READ: return FileAccess.open(save_path, FileAccess.READ)
+	# Get FileAccess with encryption
+	else:
+		match mode:
+			file_access_mode.WRITE: return FileAccess.open_encrypted_with_pass(save_path, FileAccess.WRITE, ENCRYPT_KEY)
+			file_access_mode.READ: return FileAccess.open_encrypted_with_pass(save_path, FileAccess.READ, ENCRYPT_KEY)
+		
+	return null
 
 
 # Save data
@@ -117,12 +135,8 @@ func save_data(save_name: String, data_to_save: Dictionary) -> bool:
 	# Creates a temporary save path. This ensures that existing data is not damaged during saving.
 	var temp_path = get_save_path(save_name, true)
 	
-	var file : FileAccess
-	if !ENCRYPT_FILES:
-		file = FileAccess.open(temp_path, FileAccess.WRITE)
-	if ENCRYPT_FILES:
-		file = FileAccess.open_encrypted_with_pass(temp_path, FileAccess.WRITE, ENCRYPT_KEY)
-	
+	var file : FileAccess = file_access(temp_path, file_access_mode.WRITE)
+
 	# Checks if the file was successfully opened for writing.
 	if file == null:
 		save_failed.emit(save_name, "Failed to save data. Can`t write file.")
@@ -163,12 +177,7 @@ func load_data(save_name: String, data_to_load_into: Dictionary) -> Dictionary:
 	
 	var save_path: String = get_save_path(save_name, false)
 	
-	var file: FileAccess
-	
-	if !ENCRYPT_FILES:
-		file = FileAccess.open(save_path, FileAccess.READ)
-	if ENCRYPT_FILES:
-		file = FileAccess.open_encrypted_with_pass(save_path, FileAccess.READ, ENCRYPT_KEY)
+	var file: FileAccess = file_access(save_path, file_access_mode.READ)
 	
 	# Check if the file was successfully opened for reading.
 	if file == null:
@@ -257,54 +266,47 @@ func check_queue(queue: Dictionary, process: Callable) -> void:
 				break
 
 
-# Prints the debug messages
-func log_debug(info_name: String, message: String) -> void:
-	if PRINT_DEBUG_MESSAGES:
-		print("[DEBUG] " + message)
-		print("[DEBUG] Name: " + info_name)
-
-
-# Prints the error messages
-func log_error(info_name: String, message: String) -> void:
-	if PRINT_ERROR_MESSAGES:
-		printerr("[ERROR] " + message)
-		printerr("[ERROR] Name: " + info_name)
+enum log_message_type {DEBUG, ERROR}
+# Prints the log_messages
+func log_message(type: log_message_type, info: String, message: String) -> void:
+	match type:
+		log_message_type.DEBUG: if PRINT_DEBUG_MESSAGES: print("[DEBUG] " + message + "\n[DEBUG] Name: " + info)
+		log_message_type.ERROR: if PRINT_ERROR_MESSAGES: printerr("[ERROR] " + message + "\n[ERROR] Name: " + info)
 
 
 # Prints the debug messages
 func _on_save_successful(save_name: String, debug_message: String):
 	save_process_status = process_status.IDLE # Marks the process as done.
-	log_debug(save_name, debug_message)
+	log_message(log_message_type.DEBUG, save_name, debug_message)
 	check_queue(save_queue, save_data)
 
 func _on_save_failed(save_name: String, error_message: String):
 	save_process_status = process_status.FAILED # Marks the process as failed.
-	log_error(save_name, error_message)
+	log_message(log_message_type.ERROR, save_name, error_message)
 	await get_tree().create_timer(wait_time_after_fail).timeout
 	save_process_status = process_status.IDLE
 	check_queue(save_queue, save_data)
 
 func _on_load_successful(save_name: String, debug_message: String):
 	load_process_status = process_status.IDLE # Marks the process as done.
-	log_debug(save_name, debug_message)
+	log_message(log_message_type.DEBUG, save_name, debug_message)
 	check_queue(load_queue, load_data)
 
 func _on_load_failed(save_name: String, error_message: String):
 	load_process_status = process_status.FAILED # Marks the process as failed.
-	log_error(save_name, error_message)
+	log_message(log_message_type.ERROR, save_name, error_message)
 	await get_tree().create_timer(wait_time_after_fail).timeout
 	load_process_status = process_status.IDLE
 	check_queue(load_queue, load_data)
 	
-
 func _on_data_cleanup_successful(save_name: String, debug_message: String):
 	cleanup_process_status = process_status.IDLE
-	log_debug(save_name, debug_message)
+	log_message(log_message_type.DEBUG, save_name, debug_message)
 	check_queue(cleanup_queue, cleanup_data)
 
 func _on_data_cleanup_failed(save_name: String, error_message: String):
 	cleanup_process_status = process_status.FAILED
-	log_error(save_name, error_message)
+	log_message(log_message_type.ERROR, save_name, error_message)
 	await get_tree().create_timer(wait_time_after_fail).timeout
 	cleanup_process_status = process_status.IDLE
 	check_queue(cleanup_queue, cleanup_data)
