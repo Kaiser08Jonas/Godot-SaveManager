@@ -1,13 +1,16 @@
 extends Node
 
 # Adjust these constants only before creating the first save file.
-const SAVE_DIRECTORY = "user://savegames/"	# The data is saved in this path
-const ENCRYPT_KEY: String = "123456abc"		# If the data should be encrypted, it will be encrypted with this key.
-const ENCRYPT_FILES: bool = true			# Determines whether the data should be encrypted.
+const SAVE_DIRECTORY: String = "user://SaveManager//savegames/"			# The data is saved in this path.
+const LOG_MESSAGE_DIRECTORY: String = "user://SaveManager//debuging/"	# The log messages is saved in this path.
+const LOG_FILE_NAME: String = "Log"										# Name of the log messages file.
+const ENCRYPT_KEY: String = "123456abc"									# If the data should be encrypted, it will be encrypted with this key.
+const ENCRYPT_FILES: bool = false										# Determines whether the data should be encrypted.
 
 # Adjust these variables according to the desired functions.
 var PRINT_DEBUG_MESSAGES: bool = true		# When true, prints the debug messages via the signals.
 var PRINT_ERROR_MESSAGES: bool = true		# When true, prints the error messages via the signals.
+var SAVE_LOG_MESSAGES: bool = true			# When true, save the log messages in a text file.
 var can_save_empty_data: bool = false		# When true, empty data will be saved.
 var clean_up: bool  = true					# When true, loaded data is deleted from the saved file if it is no longer in the dictionary to be loaded.
 var wait_time_after_fail: int = 1			# Defines the time in seconds how long the FAILED status remains.
@@ -34,6 +37,8 @@ signal data_cleanup_failed(save_name: String, error_message: String)			# Sends a
 # If new signals are added, they must be entered in the list in order to be automatically linked to the corresponding function.
 const SIGNALS: Array = ["save_successful", "save_failed", "load_successful", "load_failed", "data_cleanup_successful", "data_cleanup_failed"]
 
+enum log_message_type {DEBUG, ERROR}
+
 
 func _ready() -> void:
 	# Connect the signal to the functions
@@ -43,21 +48,21 @@ func _ready() -> void:
 
 # Function to construct the file path for saving/loading.
 # Returns a string representing the full path to the save file.
-func get_save_path(save_name: String, temporary: bool) -> String:
+func get_save_path(directory: String, save_name: String, temporary: bool) -> String:
 	if ENCRYPT_FILES:
 		if temporary:
-			return SAVE_DIRECTORY + save_name + ".tmp"
+			return directory + save_name + ".tmp"
 		else:
-			return SAVE_DIRECTORY + save_name + ".save"
+			return directory + save_name + ".save"
 	
 	if temporary:
-		return SAVE_DIRECTORY + save_name + ".tmp"
+		return directory + save_name + ".tmp"
 	else:
-		return SAVE_DIRECTORY + save_name + ".save"
+		return directory + save_name + ".save"
 
 
 # Ensures that the storage location exists.
-func ensure_save_directory(save_name: String, process: String) -> bool:
+func ensure_save_directory(directory: String, save_name: String, process: String) -> bool:
 	var dir: DirAccess = DirAccess.open("user://")
 	# Checks if the folder was successfully opened for writing.
 	if dir == null:
@@ -68,8 +73,8 @@ func ensure_save_directory(save_name: String, process: String) -> bool:
 		return false
 	
 	# Create a folder if none exists.
-	if !dir.dir_exists(SAVE_DIRECTORY):
-		var result = dir.make_dir(SAVE_DIRECTORY)
+	if !dir.dir_exists(directory):
+		var result = dir.make_dir_recursive(directory)
 		if result != OK:
 			if str(process) + "_data" == "save_data":
 				save_failed.emit(save_name, "Faild to create savegames directory. while saving.")
@@ -127,13 +132,13 @@ func save_data(save_name: String, data_to_save: Dictionary) -> bool:
 		return false
 	
 	# Checks if the folder for the save exists.
-	if !ensure_save_directory(save_name, "save"):
+	if !ensure_save_directory(SAVE_DIRECTORY, save_name, "save"):
 		save_failed.emit(save_name, "Failed to ensure save directory for saving.")
 		return false
 	
-	var save_path = get_save_path(save_name, false)
+	var save_path = get_save_path(SAVE_DIRECTORY, save_name, false)
 	# Creates a temporary save path. This ensures that existing data is not damaged during saving.
-	var temp_path = get_save_path(save_name, true)
+	var temp_path = get_save_path(SAVE_DIRECTORY, save_name, true)
 	
 	var file : FileAccess = file_access(temp_path, file_access_mode.WRITE)
 
@@ -166,16 +171,16 @@ func load_data(save_name: String, data_to_load_into: Dictionary) -> Dictionary:
 	
 	load_process_status = process_status.LOADING # Mark the process as loading.
 	
-	if !ensure_save_directory(save_name, "loading"):
+	if !ensure_save_directory(SAVE_DIRECTORY, save_name, "loading"):
 		load_failed.emit(save_name, "Failed to ensure save directory for loading.")
 		return data_to_load_into
 	
 	# Check if the file exists.
-	if !FileAccess.file_exists(get_save_path(save_name, false)):
+	if !FileAccess.file_exists(get_save_path(SAVE_DIRECTORY, save_name, false)):
 		load_failed.emit(save_name, "Failed to load data. File does not exist.")
 		return data_to_load_into
 	
-	var save_path: String = get_save_path(save_name, false)
+	var save_path: String = get_save_path(SAVE_DIRECTORY, save_name, false)
 	
 	var file: FileAccess = file_access(save_path, file_access_mode.READ)
 	
@@ -232,7 +237,7 @@ func cleanup_data(save_name: String, loaded_data: Dictionary, data_to_compare: D
 		if data_to_compare.has(key):
 			new_data[key] = loaded_data[key]
 	
-	var file: FileAccess = FileAccess.open(get_save_path(save_name, false), FileAccess.WRITE)
+	var file: FileAccess = FileAccess.open(get_save_path(SAVE_DIRECTORY, save_name, false), FileAccess.WRITE)
 	
 	# Checks if the file was successfully opened for writing.
 	if file == null:
@@ -266,12 +271,43 @@ func check_queue(queue: Dictionary, process: Callable) -> void:
 				break
 
 
-enum log_message_type {DEBUG, ERROR}
 # Prints the log_messages
 func log_message(type: log_message_type, info: String, message: String) -> void:
+	var datetime_dict = Time.get_datetime_dict_from_system()
+	var datetime_string = Time.get_datetime_string_from_datetime_dict(datetime_dict, true)
 	match type:
-		log_message_type.DEBUG: if PRINT_DEBUG_MESSAGES: print("[DEBUG] " + message + "\n[DEBUG] Name: " + info)
-		log_message_type.ERROR: if PRINT_ERROR_MESSAGES: printerr("[ERROR] " + message + "\n[ERROR] Name: " + info)
+		log_message_type.DEBUG: if PRINT_DEBUG_MESSAGES: print("[DEBUG] " + message + "\n[DEBUG] Name: " + info + "\n[DEBUG] Date/time: " + datetime_string)
+		log_message_type.ERROR: if PRINT_ERROR_MESSAGES: printerr("[ERROR] " + message + "\n[ERROR] Name: " + info + "\n[ERROR] Date/time: " + datetime_string)
+	if SAVE_LOG_MESSAGES:
+		save_log_messages(type, info, message, datetime_string)
+
+
+# Save the log messages in a .txt file
+func save_log_messages(type: log_message_type, info: String, message: String, datetime_string: String) -> void:
+	# Checks if the folder for the save exists.
+	if !ensure_save_directory(LOG_MESSAGE_DIRECTORY, "LOG_FILE_NAME", "log"):
+		return
+	
+	var save_path = LOG_MESSAGE_DIRECTORY + "Log.txt"
+	var file: FileAccess = FileAccess.open(save_path, FileAccess.READ_WRITE)
+	var log_message_to_save: String
+	
+	if !FileAccess.file_exists(save_path):
+		file = FileAccess.open(save_path, FileAccess.WRITE)
+	
+	# Checks if the file was successfully opened for writing.
+	if file == null:
+		return
+	
+	match type:
+		log_message_type.DEBUG: log_message_to_save = "[DEBUG] "  + datetime_string + " Name: " + info + " " + message + "\n"
+		log_message_type.ERROR: log_message_to_save = "[ERROR] "  + datetime_string + " Name: " + info + " " + message + "\n"
+	
+	file.seek_end()
+	file.store_string(log_message_to_save)
+	file.close()
+	
+	pass
 
 
 # Prints the debug messages
