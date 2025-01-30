@@ -78,9 +78,14 @@ custom_minimum_size = Vector2(0, 50)
 layout_mode = 2
 text = "Savefile -"
 
+[node name="Button" type="Button" parent="CenterContainer/VBoxContainer"]
+layout_mode = 2
+text = "Delete file"
+
 [connection signal="pressed" from="CenterContainer/VBoxContainer/HBoxContainer/Plus" to="." method="_on_plus_pressed"]
 [connection signal="pressed" from="CenterContainer/VBoxContainer/HBoxContainer/Minus" to="." method="_on_minus_pressed"]
 [connection signal="pressed" from="CenterContainer/VBoxContainer/Save" to="." method="_on_save_pressed"]
 [connection signal="pressed" from="CenterContainer/VBoxContainer/Load" to="." method="_on_load_pressed"]
 [connection signal="pressed" from="CenterContainer/VBoxContainer/HBoxContainer2/Savefileplus" to="." method="_on_savefileplus_pressed"]
 [connection signal="pressed" from="CenterContainer/VBoxContainer/HBoxContainer2/Savefileminus" to="." method="_on_savefileminus_pressed"]
+[connection signal="pressed" from="CenterContainer/VBoxContainer/Button" to="." method="_on_button_pressed"]

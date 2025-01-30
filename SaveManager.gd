@@ -33,9 +33,11 @@ signal load_successful(save_name: String, debug_message: String)				# Sends a si
 signal load_failed(save_name: String, error_message: String)					# Sends a signal if the load has failed.
 signal data_cleanup_successful(save_name: String, debug_message: String)		# Sends a signal if the cleanup was successful.
 signal data_cleanup_failed(save_name: String, error_message: String)			# Sends a signal if the cleanup has failed.
+signal delete_save_successful(save_name: String, debug_message: String)
+signal delete_save_failed(save_name: String, error_message: String)
 # Is used to connect the signals in the _ready function.
 # If new signals are added, they must be entered in the list in order to be automatically linked to the corresponding function.
-const SIGNALS: Array = ["save_successful", "save_failed", "load_successful", "load_failed", "data_cleanup_successful", "data_cleanup_failed"]
+const SIGNALS: Array = ["save_successful", "save_failed", "load_successful", "load_failed", "data_cleanup_successful", "data_cleanup_failed", "delete_save_successful", "delete_save_failed"]
 
 enum log_message_type {DEBUG, ERROR}
 
@@ -270,6 +272,25 @@ func check_queue(queue: Dictionary, process: Callable) -> void:
 				process.call(key, next_item) # Starts the saving process for the next data in the queue.
 				break
 
+# Deletes a save file if it exists.
+func delete_save(save_name:String) -> bool:
+	var save_path = get_save_path(SAVE_DIRECTORY, save_name, false)
+	
+	if !FileAccess.file_exists(save_path):
+		delete_save_failed.emit(save_name, "Failed to delete save. File does not exist.")
+		return false
+	
+	var dir = DirAccess.open(SAVE_DIRECTORY)
+	if dir == null:
+		delete_save_failed.emit(save_name, "Failed to access save directory while deleting.")
+		return false
+	
+	if dir.remove(save_path.get_file()) != OK:
+		delete_save_failed.emit(save_name, "Failed to delete save file.")
+	
+	delete_save_successful.emit(save_name, "Save file deleted successfully")
+	return true
+
 
 # Prints the log_messages
 func log_message(type: log_message_type, info: String, message: String) -> void:
@@ -346,3 +367,6 @@ func _on_data_cleanup_failed(save_name: String, error_message: String):
 	await get_tree().create_timer(wait_time_after_fail).timeout
 	cleanup_process_status = process_status.IDLE
 	check_queue(cleanup_queue, cleanup_data)
+
+func _on_delete_save_successful(save_name: String, debug_message: String):
+	log_message(log_message_type.DEBUG, save_name, debug_message)

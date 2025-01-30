@@ -41,3 +41,7 @@ func _on_savefileplus_pressed() -> void:
 func _on_savefileminus_pressed() -> void:
 	save_name -= 1
 	%Savefilename.text = "Savefilename: " + str(save_name)
+
+
+func _on_button_pressed() -> void:
+	SaveManager.delete_save(str(save_name))
