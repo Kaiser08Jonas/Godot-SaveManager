@@ -114,6 +114,12 @@ If false -> old data remains in the saved file.
 
 If true -> old data will be deleted from the saved file and a corresponding debug message will be printet in the console.
 
+### Delete save
+To delete saved files, you can call the `delete_save` function and pass it the name of the file. This then automatically deletes the file.
+
+### List saves
+Use the `list_saves` function to obtain an array with the names of all save files. The name does not contain the extension “.save”.
+
 ### Wait after fail
 The `wait_time_after_fail: int = 1` variable defines the time in seconds that the load or save process remains in fail mode. The higher it is, the longer no new process can be started after an error.
 

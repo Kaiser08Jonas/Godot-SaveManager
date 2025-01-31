@@ -20,6 +20,7 @@ func _on_minus_pressed() -> void:
 
 func _on_save_pressed() -> void:
 	SaveManager.save_data(str(save_name), data)
+	
 
 
 func _on_load_pressed() -> void:
@@ -41,3 +42,11 @@ func _on_savefileplus_pressed() -> void:
 func _on_savefileminus_pressed() -> void:
 	save_name -= 1
 	%Savefilename.text = "Savefilename: " + str(save_name)
+
+
+func _on_button_pressed() -> void:
+	SaveManager.delete_save(str(save_name))
+
+
+func _on_list_saves_pressed() -> void:
+	print(SaveManager.list_saves())
